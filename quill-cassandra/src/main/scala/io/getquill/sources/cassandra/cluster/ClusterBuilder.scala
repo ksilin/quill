@@ -8,6 +8,8 @@ import java.lang.reflect.Method
 import scala.collection.JavaConversions._
 import com.datastax.driver.core.Cluster
 
+import scala.collection.JavaConverters._
+
 object ClusterBuilder {
 
   def apply(cfg: Config) =
@@ -54,21 +56,35 @@ object ClusterBuilder {
         }
       }
     }
-
     instance
   }
 
-  private def param(key: String, tpe: Class[_], cfg: Config) =
+  val stringArrayClass = java.lang.reflect.Array.newInstance(classOf[String], 0).getClass()
+
+  def param(key: String, tpe: Class[_], cfg: Config): Try[Any] =
     Try {
-      if (tpe == classOf[String])
-        cfg.getString(key)
-      else if (tpe == classOf[Int] || tpe == classOf[Integer])
+      if (tpe == classOf[String]) {
+        println("string")
         cfg.getInt(key)
-      else if (tpe.isEnum)
+      } else if (tpe == stringArrayClass ) {
+        println("string list")
+        cfg.getStringList(key).asScala.toArray
+      }
+      else if (tpe == classOf[Int] || tpe == classOf[Integer]) {
+        println("int")
+        cfg.getInt(key)
+      }
+      else if (tpe.isEnum) {
+        println("enum")
         tpe.getMethod("valueOf", classOf[String]).invoke(tpe, cfg.getString(key))
-      else if (cfg.getValue(key).valueType == ConfigValueType.STRING)
+      }
+      else if (cfg.getValue(key).valueType == ConfigValueType.STRING) {
+        println("config string")
         getClass.getClassLoader.loadClass(cfg.getString(key)).newInstance
-      else
+      }
+      else {
+        println(s"bucket type: $tpe")
         set(tpe.newInstance, cfg.getConfig(key))
+      }
     }
 }
